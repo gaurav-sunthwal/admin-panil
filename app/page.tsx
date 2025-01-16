@@ -1,101 +1,107 @@
-import Image from "next/image";
+"use client";
 
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Box, VStack } from "@chakra-ui/react";
+import { PasswordInput } from "@/components/ui/password-input";
+import { ColorModeButton } from "@/components/ui/color-mode";
+import { useState } from "react";
+import { eq } from "drizzle-orm";
+import { usersTable } from "@/utlis/schema";
+import { db } from "@/utlis/db";
+import { useToast } from "@/hooks/use-toast";
+import { LoaderCircleIcon } from "lucide-react";
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [name, setName] = useState("");
+  const [Email, setEmail] = useState("");
+  const [Password, setPassword] = useState("");
+  const [loading ,  setLoading] = useState(false);
+  const { toast } = useToast()
+  const handalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const result = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, Email));
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      if (result.length > 0 && result[0].password === Password) {
+       console.log("Successfully submitted")
+      } else {
+        console.log("Invalid password")
+      }
+    } catch (error) {
+      console.error("Error while logging in:", error);
+      console.log("not  submitted")
+    }
+    setLoading(false)
+  };
+
+  return (
+    <Box className="w-full h-full">
+      <Box className=" absolute right-0 p-4">
+        <ColorModeButton />
+      </Box>
+      <VStack h={"100vh"} justifyContent={"center"}>
+        <Card className="w-[350px]">
+          <CardHeader>
+            <CardTitle className=" text-2xl">Login to your Account</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handalSubmit}>
+              <div className="grid w-full items-center gap-4">
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Name of your project"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="name">Email</Label>
+                  <Input
+                    type="email"
+                    id="name"
+                    placeholder="Email of your project"
+                    value={Email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="name">Password</Label>
+                  <Box borderWidth={1} borderRadius={4}>
+                    <PasswordInput
+                      p={3}
+                      value={Password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </Box>
+                </div>
+              </div>
+            </form>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button onClick={handalSubmit} type="submit" variant="default">
+                {loading ? <LoaderCircleIcon/>  : "Submit"}
+            </Button>
+          </CardFooter>
+        </Card>
+      </VStack>
+    </Box>
   );
 }
