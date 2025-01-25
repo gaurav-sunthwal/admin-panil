@@ -1,8 +1,12 @@
-"use client";
-
 import * as React from "react";
-import { TiUserAdd } from "react-icons/ti";
-
+import { useEffect } from "react";
+import {
+  MoreHorizontal,
+  ArrowUpDown,
+  ChevronDown,
+  UserPlus,
+} from "lucide-react";
+import { toast } from "sonner";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -15,7 +19,6 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown,  ChevronDown, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,47 +50,20 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-const data: Payment[] = [
-  {
-    id: "m5gr84i9",
-    amount: 316,
-    status: "success",
-    email: "ken99@yahoo.com",
-  },
-  {
-    id: "3u1reuv4",
-    amount: 242,
-    status: "success",
-    email: "Abe45@gmail.com",
-  },
-  {
-    id: "derv1ws0",
-    amount: 837,
-    status: "processing",
-    email: "Monserrat44@gmail.com",
-  },
-  {
-    id: "5kma53ae",
-    amount: 874,
-    status: "success",
-    email: "Silas22@gmail.com",
-  },
-  {
-    id: "bhqecj4p",
-    amount: 721,
-    status: "failed",
-    email: "carmella@hotmail.com",
-  },
-];
+import { Switch } from "@/components/ui/switch";
+import { db } from "@/utlis/db";
+import { usersTable } from "@/utlis/schema";
 
-export type Payment = {
+export type User = {
   id: string;
-  amount: number;
-  status: "pending" | "processing" | "success" | "failed";
+  name: string;
   email: string;
+  contact: string;
+  is_admin: boolean;
+  created_at: string;
 };
 
-export const columns: ColumnDef<Payment>[] = [
+export const columns: ColumnDef<User>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -111,11 +87,9 @@ export const columns: ColumnDef<Payment>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => (
-      <div className="capitalize">{row.getValue("status")}</div>
-    ),
+    accessorKey: "name",
+    header: "Name",
+    cell: ({ row }) => <div className="capitalize">{row.getValue("name")}</div>,
   },
   {
     accessorKey: "email",
@@ -126,51 +100,46 @@ export const columns: ColumnDef<Payment>[] = [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           Email
-          <ArrowUpDown />
+          <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
     cell: ({ row }) => <div className="lowercase">{row.getValue("email")}</div>,
   },
   {
-    accessorKey: "amount",
-    header: () => <div className="text-right">Amount</div>,
-    cell: ({ row }) => {
-      const amount = parseFloat(row.getValue("amount"));
-
-      // Format the amount as a dollar amount
-      const formatted = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(amount);
-
-      return <div className="text-right font-medium">{formatted}</div>;
-    },
+    accessorKey: "contact",
+    header: "Contact",
+    cell: ({ row }) => <div>{row.getValue("contact")}</div>,
+  },
+  {
+    accessorKey: "is_admin",
+    header: "Admin",
+    cell: ({ row }) => <div>{row.getValue("is_admin") ? "Yes" : "No"}</div>,
   },
   {
     id: "actions",
     enableHiding: false,
     cell: ({ row }) => {
-      const payment = row.original;
+      const user = row.original;
 
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
               <span className="sr-only">Open menu</span>
-              <MoreHorizontal />
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(payment.id)}
+              onClick={() => navigator.clipboard.writeText(user.id)}
             >
-              Copy payment ID
+              Copy user ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View customer</DropdownMenuItem>
-            <DropdownMenuItem>View payment details</DropdownMenuItem>
+            <DropdownMenuItem>View user details</DropdownMenuItem>
+            <DropdownMenuItem>Edit user</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );
@@ -179,6 +148,7 @@ export const columns: ColumnDef<Payment>[] = [
 ];
 
 export function Home() {
+  const [users, setUsers] = React.useState<User[]>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -186,9 +156,61 @@ export function Home() {
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+
+  // Form state
+  const [formData, setFormData] = React.useState({
+    name: "",
+    email: "",
+    contact: "",
+    password: "",
+    is_admin: false,
+  });
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await db
+        .select()
+        .from(usersTable)
+        .orderBy(usersTable.id);
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      toast.error("Error fetching users");
+      console.error("Error:", error);
+    }
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const { error } = await db.from("users").insert([formData]);
+
+      if (error) throw error;
+
+      toast.success("User added successfully");
+      setIsDialogOpen(false);
+      setFormData({
+        name: "",
+        email: "",
+        contact: "",
+        password: "",
+        is_admin: false,
+      });
+      fetchUsers();
+    } catch (error) {
+      toast.error("Error adding user");
+      console.error("Error:", error);
+    }
+  };
 
   const table = useReactTable({
-    data,
+    data: users,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -208,9 +230,9 @@ export function Home() {
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
+      <div className="flex items-center py-4 gap-2">
         <Input
-          placeholder="Filter emails..."
+          placeholder="Filter by email..."
           value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("email")?.setFilterValue(event.target.value)
@@ -219,8 +241,8 @@ export function Home() {
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns <ChevronDown />
+            <Button variant="outline">
+              Columns <ChevronDown className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -243,22 +265,20 @@ export function Home() {
               })}
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className=" px-3">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                {" "}
-                <TiUserAdd /> Add Users
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Edit profile</DialogTitle>
-                <DialogDescription>
-                 {` Make changes to your profile here. Click save when you're
-                  done.`}
-                </DialogDescription>
-              </DialogHeader>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="ml-auto">
+              <UserPlus className="mr-2 h-4 w-4" /> Add User
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New User</DialogTitle>
+              <DialogDescription>
+                Enter the user details below to create a new user account.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleAddUser}>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
@@ -266,45 +286,96 @@ export function Home() {
                   </Label>
                   <Input
                     id="name"
-                    defaultValue="Pedro Duarte"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     className="col-span-3"
+                    required
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="username" className="text-right">
-                    Username
+                  <Label htmlFor="email" className="text-right">
+                    Email
                   </Label>
                   <Input
-                    id="username"
-                    defaultValue="@peduarte"
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     className="col-span-3"
+                    required
                   />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="contact" className="text-right">
+                    Contact
+                  </Label>
+                  <Input
+                    id="contact"
+                    value={formData.contact}
+                    onChange={(e) =>
+                      setFormData({ ...formData, contact: e.target.value })
+                    }
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="password" className="text-right">
+                    Password
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="is_admin" className="text-right">
+                    Admin
+                  </Label>
+                  <div className="col-span-3">
+                    <Switch
+                      id="is_admin"
+                      checked={formData.is_admin}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, is_admin: checked })
+                      }
+                    />
+                  </div>
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Save changes</Button>
+                <Button type="submit">Add User</Button>
               </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  );
-                })}
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
@@ -327,11 +398,8 @@ export function Home() {
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
+                <TableCell colSpan={columns.length} className="text-center">
+                  No users found.
                 </TableCell>
               </TableRow>
             )}
@@ -343,24 +411,22 @@ export function Home() {
           {table.getFilteredSelectedRowModel().rows.length} of{" "}
           {table.getFilteredRowModel().rows.length} row(s) selected.
         </div>
-        <div className="space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+        >
+          Next
+        </Button>
       </div>
     </div>
   );

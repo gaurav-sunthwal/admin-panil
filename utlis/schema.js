@@ -8,3 +8,6 @@ export const usersTable = pgTable("users", {
   password: varchar("password", { length: 255 }).notNull(),
   isAdmin: boolean("isAdmin").notNull().default(false),
 });
+
+
+
