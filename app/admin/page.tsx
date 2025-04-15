@@ -1,23 +1,13 @@
-"use client";
+import { getDashboardStats } from "@/lib/actions"
+import { AdminDashboard } from "@/components/admin/dashboard"
 
-import React from "react";
+export default async function AdminPage() {
+  const stats = await getDashboardStats()
 
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "./_components/appsidebar";
-import Navbar from "./_components/Navbar";
-import { Home } from "./_components/Home";
-export default function page() {
   return (
-    <div>
-      <SidebarProvider>
-        <AppSidebar />
-        <div className="w-full h-full">
-          <Navbar />
-          <div className="p-3">
-            <Home />
-          </div>
-        </div>
-      </SidebarProvider>
-    </div>
-  );
+    <main className="container mx-auto py-8 px-4">
+      <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+      <AdminDashboard stats={stats} />
+    </main>
+  )
 }
